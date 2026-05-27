@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>图片压缩转换工具</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, sans-serif;
+    }
+    body {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 0 20px;
+      background: #f5f7fa;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .drop-area {
+      border: 2px dashed #409eff;
+      border-radius: 12px;
+      padding: 50px 20px;
+      text-align: center;
+      background: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .drop-area:hover {
+      background: #edf5ff;
+    }
+    .drop-area.active {
+      background: #dceeff;
+      border-color: #007bff;
+    }
+    #fileInput {
+      display: none;
+    }
+    .config {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+    }
+    .config select,
+    .config input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      background: #409eff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #337ecc;
+    }
+    .preview {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    .preview img {
+      max-width: 100%;
+      max-height: 400px;
+      margin: 15px 0;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+    .info {
+      color: #666;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>图片压缩转换工具</h1>
+
+  <!-- 上传区域 -->
+  <div class="drop-area" id="dropArea">
+    <p>点击 或 拖拽图片到此处</p>
+    <input type="file" id="fileInput" accept="image/*" />
+  </div>
+
+  <!-- 配置区 -->
+  <div class="config">
+    <div>
+      <label>输出格式：</label>
+      <select id="format">
+        <option value="jpeg">JPG</option>
+        <option value="png">PNG</option>
+        <option value="webp">WebP</option>
+      </select>
+    </div>
+    <div>
+      <label>质量：</label>
+      <input type="range" id="quality" min="0.1" max="1" step="0.1" value="0.8" />
+      <span id="qualityText">0.8</span>
+    </div>
+    <button id="processBtn">开始压缩转换</button>
+    <button id="downloadBtn" style="background: #28a745; display: none">下载图片</button>
+  </div>
+
+  <!-- 预览区 -->
+  <div class="preview" style="display: none" id="previewBox">
+    <h3>预览</h3>
+    <img id="previewImg" />
+    <p class="info" id="sizeInfo"></p>
+  </div>
+
+  <script>
+    const dropArea = document.getElementById('dropArea');
+    const fileInput = document.getElementById('fileInput');
+    const previewBox = document.getElementById('previewBox');
+    const previewImg = document.getElementById('previewImg');
+    const processBtn = document.getElementById('processBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const quality = document.getElementById('quality');
+    const qualityText = document.getElementById('qualityText');
+    const formatSelect = document.getElementById('format');
+    const sizeInfo = document.getElementById('sizeInfo');
+
+    let currentFile = null;
+    let outputUrl = '';
+
+    // 质量滑块显示
+    quality.addEventListener('input', () => {
+      qualityText.textContent = quality.value;
+    });
+
+    // 点击上传
+    dropArea.addEventListener('click', () => fileInput.click());
+
+    // 文件选择
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    // 拖拽
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+      dropArea.addEventListener(evt, e => e.preventDefault());
+    });
+    dropArea.addEventListener('dragover', () => dropArea.classList.add('active'));
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('active'));
+    dropArea.addEventListener('drop', (e) => {
+      dropArea.classList.remove('active');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    // 读取图片
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) return alert('请选择图片');
+      currentFile = file;
+      const url = URL.createObjectURL(file);
+      previewImg.src = url;
+      previewBox.style.display = 'block';
+      sizeInfo.textContent = `原始大小：${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      downloadBtn.style.display = 'none';
+    }
+
+    // 压缩转换
+    processBtn.addEventListener('click', () => {
+      if (!currentFile) return alert('请先上传图片');
+      const img = new Image();
+      img.src = URL.createObjectURL(currentFile);
+      img.onload = function () {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        const fmt = formatSelect.value;
+        const q = Number(quality.value);
+        canvas.toBlob(blob => {
+          outputUrl = URL.createObjectURL(blob);
+          previewImg.src = outputUrl;
+          sizeInfo.textContent =
+            `原始：${(currentFile.size / 1024 / 1024).toFixed(2)} MB → ` +
+            `压缩后：${(blob.size / 1024).toFixed(2)} KB`;
+          downloadBtn.style.display = 'inline-block';
+        }, `image/${fmt}`, q);
+      };
+    });
+
+    // 下载
+    downloadBtn.addEventListener('click', () => {
+      if (!outputUrl) return;
+      const a = document.createElement('a');
+      a.href = outputUrl;
+      const ext = formatSelect.value === 'jpeg' ? 'jpg' : formatSelect.value;
+      a.download = `compressed.${ext}`;
+      a.click();
+    });
+  </script>
+</body>
+</html>
